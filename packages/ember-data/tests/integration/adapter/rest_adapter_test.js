@@ -699,18 +699,24 @@ test("findMany - returning an array populates the array", function() {
       ]
     });
 
-return post.get('comments');
-  })).then(async(function(comments) {
-    var comment1 = store.getById('comment', 1),
-        comment2 = store.getById('comment', 2),
-        comment3 = store.getById('comment', 3);
+    return post.get('comments').load();
+  })).then(async(function (manyArray) {
+    return Ember.RSVP.all([
+      manyArray.objectAt(0),
+      manyArray.objectAt(1),
+      manyArray.objectAt(2)
+    ]);
+  })).then(async(function (comments) {
+    var comment1 = comments[0],
+        comment2 = comments[1],
+        comment3 = comments[2];
 
     deepEqual(comment1.getProperties('id', 'name'), { id: "1", name: "FIRST" });
     deepEqual(comment2.getProperties('id', 'name'), { id: "2", name: "Rails is unagi" });
     deepEqual(comment3.getProperties('id', 'name'), { id: "3", name: "What is omakase?" });
 
     deepEqual(
-      comments.toArray(),
+      comments,
       [ comment1, comment2, comment3 ],
       "The correct records are in the array"
     );
@@ -733,7 +739,7 @@ test("findMany - returning sideloaded data loads the data", function() {
       posts: [{ id: 2, name: "The Parley Letter" }]
     });
 
-    return post.get('comments');
+    return post.get('comments').load();
   })).then(async(function(comments) {
     var comment1 = store.getById('comment', 1),
         comment2 = store.getById('comment', 2),
@@ -775,7 +781,7 @@ test("findMany - a custom serializer is used if present", function() {
         { _ID_: 3, _NAME_: "What is omakase?" }]
     });
 
-    return post.get('comments');
+    return post.get('comments').load();
   })).then(async(function(comments) {
     var comment1 = store.getById('comment', 1),
         comment2 = store.getById('comment', 2),
