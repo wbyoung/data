@@ -53,6 +53,27 @@ test("Calling Store#find invokes its adapter#find", function() {
   currentStore.find(currentType, 1);
 });
 
+test("Calling Store#findById multiple times coalesces the calls into a adapter#findMany call", function() {
+  expect(4);
+
+  var adapter = TestAdapter.extend({
+    find: function(store, type, id) {
+      ok(false, "Adapter#find was not called");
+    },
+    findMany: function(store, type, ids) {
+      start();
+      ok(true, "Adapter#findMany was called");
+      equal(ids, [1,2], 'Correct ids were passed in to findMany');
+    }
+  });
+
+  var currentStore = createStore({ adapter: adapter });
+  var currentType = DS.Model.extend();
+  stop();
+  currentStore.find(currentType, 1);
+  currentStore.find(currentType, 2);
+});
+
 test("Returning a promise from `find` asynchronously loads data", function() {
   var adapter = TestAdapter.extend({
     find: function(store, type, id) {
