@@ -32,7 +32,8 @@ function asyncBelongsTo(type, options, meta) {
         belongsTo = data[key];
 
     if(!isNone(belongsTo)) {
-      promise = store.scheduleFetch(belongsTo) || Promise.cast(belongsTo, promiseLabel);
+      //TODO(Igor) after OR doesn't seem that will be called
+      promise = store.findById(belongsTo.constructor, belongsTo.get('id')) || Promise.cast(belongsTo, promiseLabel);
       return PromiseObject.create({
         promise: promise
       });
@@ -135,7 +136,7 @@ function belongsTo(type, options) {
 
     if (isNone(belongsTo)) { return null; }
 
-    store.scheduleFetch(belongsTo);
+    store.findById(belongsTo.constructor, belongsTo.get('id'));
 
     return belongsTo;
   }).meta(meta);

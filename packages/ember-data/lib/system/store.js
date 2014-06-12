@@ -13,6 +13,8 @@ var isNone = Ember.isNone;
 var forEach = Ember.EnumerableUtils.forEach;
 var indexOf = Ember.EnumerableUtils.indexOf;
 var map = Ember.EnumerableUtils.map;
+var mapBy = Ember.EnumerableUtils.mapBy;
+var findBy = Ember.EnumerableUtils.findBy;
 var Promise = Ember.RSVP.Promise;
 var copy = Ember.copy;
 var Store, PromiseObject, PromiseArray, RecordArrayManager, Model;
@@ -406,7 +408,13 @@ Store = Ember.Object.extend({
     type = this.modelFor(type);
 
     var record = this.recordForId(type, id);
-    var fetchedRecord = this.scheduleFetch(record);
+    var fetchedRecord;
+    if (get(record, 'isEmpty')) {
+      fetchedRecord = this.scheduleFetch(record);
+      //TODO double check about reloading
+    } else if (get(record, 'isLoading')){
+      fetchedRecord = record._loadingPromise;
+    }
 
     return promiseObject(fetchedRecord || record, "DS: Store#findById " + type + " with id: " + id);
   },
@@ -452,11 +460,14 @@ Store = Ember.Object.extend({
     return promise;
   },
 
-  scheduleFetch: function(record){
+  scheduleFetchMany: function(records){
+    return Ember.RSVP.all(map(records, this.scheduleFetch, this));
+  },
+
+  scheduleFetch: function(record) {
     var type = record.constructor;
     if (isNone(record)) { return null; }
     if (record._loadingPromise) { return record._loadingPromise; }
-    if (!get(record, 'isEmpty')) { return null; }
 
     var resolver = Ember.RSVP.defer("Fetching " + type + "with id: " + record.get('id'));
     var recordResolverPair = {record: record, resolver: resolver};
@@ -475,17 +486,41 @@ Store = Ember.Object.extend({
   },
 
   flushPendingFetch: function(){
+    if (this.isDestoyed || this.isDestroying){
+      return;
+    }
     var store = this;
-    this._pendingFetch.forEach(function(type, records){
-      forEach(records, function(recordResolverPair){
-        var resolver = recordResolverPair.resolver;
-        store.fetchRecord(recordResolverPair.record).then(function(record){
-          resolver.resolve(record);
+    this._pendingFetch.forEach(function(type, recordResolverPairs){
+      var adapter = store.adapterFor(type);
+      if (adapter.findMany && recordResolverPairs.length > 1) {
+        var records = Ember.A(recordResolverPairs).mapBy('record');
+        var resolvers = Ember.A(recordResolverPairs).mapBy('resolver');
+        var ids = Ember.A(records).mapBy('id');
+        _findMany(adapter, store, type, ids, null).then(function(records){
+          forEach(records, function(record){
+            var pair = Ember.A(recordResolverPairs).findBy('record', record);
+            if (pair){
+              var resolver = pair.resolver;
+              resolver.resolve(record);
+            }
+          });
         }, function(error){
-          resolver.reject(error);
+          forEach(resolvers, function(resolver){
+            resolver.reject(error);
+          });
         });
-      });
-    }, this);
+      } else {
+        forEach(recordResolverPairs, function(recordResolverPair){
+          var resolver = recordResolverPair.resolver;
+          store.fetchRecord(recordResolverPair.record).then(function(record){
+            resolver.resolve(record);
+          }, function(error){
+            resolver.reject(error);
+          });
+        });
+      }
+      }, this);
+
 
     this._pendingFetch = Ember.Map.create();
   },
@@ -639,10 +674,6 @@ Store = Ember.Object.extend({
     var unloadedRecords = records.filterProperty('isEmpty', true),
         manyArray = this.recordArrayManager.createManyArray(type, records);
 
-    forEach(unloadedRecords, function(record) {
-      record.loadingData();
-    });
-
     manyArray.loadingRecordsCount = unloadedRecords.length;
 
     if (unloadedRecords.length) {
@@ -650,7 +681,7 @@ Store = Ember.Object.extend({
         this.recordArrayManager.registerWaitingRecordArray(record, manyArray);
       }, this);
 
-      resolver.resolve(this.fetchMany(unloadedRecords, owner));
+      resolver.resolve(this.scheduleFetchMany(unloadedRecords, owner));
     } else {
       if (resolver) { resolver.resolve(); }
       manyArray.set('isLoaded', true);
@@ -1782,7 +1813,7 @@ function _findMany(adapter, store, type, ids, owner) {
 
     Ember.assert("The response from a findMany must be an Array, not " + Ember.inspect(payload), Ember.typeOf(payload) === 'array');
 
-    store.pushMany(type, payload);
+    return store.pushMany(type, payload);
   }, null, "DS: Extract payload of " + type);
 }
 

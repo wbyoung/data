@@ -54,7 +54,7 @@ test("Calling Store#find invokes its adapter#find", function() {
 });
 
 test("Calling Store#findById multiple times coalesces the calls into a adapter#findMany call", function() {
-  expect(4);
+  expect(2);
 
   var adapter = TestAdapter.extend({
     find: function(store, type, id) {
@@ -63,15 +63,19 @@ test("Calling Store#findById multiple times coalesces the calls into a adapter#f
     findMany: function(store, type, ids) {
       start();
       ok(true, "Adapter#findMany was called");
-      equal(ids, [1,2], 'Correct ids were passed in to findMany');
+      deepEqual(ids, ["1","2"], 'Correct ids were passed in to findMany');
+      return Ember.RSVP.resolve([{ id: 1 }, { id:2}] );
     }
   });
 
   var currentStore = createStore({ adapter: adapter });
   var currentType = DS.Model.extend();
+  currentType.typeKey = "test";
   stop();
-  currentStore.find(currentType, 1);
-  currentStore.find(currentType, 2);
+  Ember.run(function(){
+    currentStore.find(currentType, 1);
+    currentStore.find(currentType, 2);
+  });
 });
 
 test("Returning a promise from `find` asynchronously loads data", function() {
