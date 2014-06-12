@@ -299,6 +299,27 @@ test("if an id is supplied in the initial data hash, it can be looked up using `
   }));
 });
 
+test("initial data values can be passed in as the third argument to find`", function() {
+  var adapter = TestAdapter.extend({
+    find: function(store, type, query) {
+      return new Ember.RSVP.Promise(function(){});
+    }
+  });
+
+  var callCount = 0;
+  var store = createStore({
+    adapter: adapter
+  });
+
+  var Person = DS.Model.extend({
+    name: DS.attr('string')
+  });
+
+
+  store.find(Person, 1, {name: 'Test'});
+  equal(store.getById(Person, 1).get('name'), 'Test', 'Preloaded attribtue set');
+});
+
 test("records inside a collection view should have their ids updated", function() {
   var Person = DS.Model.extend();
 

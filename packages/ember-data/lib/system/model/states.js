@@ -476,6 +476,8 @@ var RootState = {
   empty: {
     isEmpty: true,
 
+    didSetProperty: Ember.K,
+
     // EVENTS
     loadingData: function(record, promise) {
       record._loadingPromise = promise;

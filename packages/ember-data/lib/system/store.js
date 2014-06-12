@@ -13,8 +13,6 @@ var isNone = Ember.isNone;
 var forEach = Ember.EnumerableUtils.forEach;
 var indexOf = Ember.EnumerableUtils.indexOf;
 var map = Ember.EnumerableUtils.map;
-var mapBy = Ember.EnumerableUtils.mapBy;
-var findBy = Ember.EnumerableUtils.findBy;
 var Promise = Ember.RSVP.Promise;
 var copy = Ember.copy;
 var Store, PromiseObject, PromiseArray, RecordArrayManager, Model;
@@ -379,7 +377,7 @@ Store = Ember.Object.extend({
     @param {Object|String|Integer|null} id
     @return {Promise} promise
   */
-  find: function(type, id) {
+  find: function(type, id, preload) {
     Ember.assert("You need to pass a type to the store's find method", arguments.length >= 1);
     Ember.assert("You may not pass `" + id + "` as id to the store's find method", arguments.length === 1 || !Ember.isNone(id));
 
@@ -392,7 +390,7 @@ Store = Ember.Object.extend({
       return this.findQuery(type, id);
     }
 
-    return this.findById(type, coerceId(id));
+    return this.findById(type, coerceId(id), preload);
   },
 
   /**
@@ -404,10 +402,14 @@ Store = Ember.Object.extend({
     @param {String|Integer} id
     @return {Promise} promise
   */
-  findById: function(type, id) {
+  findById: function(type, id, preload) {
     type = this.modelFor(type);
 
     var record = this.recordForId(type, id);
+
+    for (var key in preload) {
+      set(record, key, get(preload, key));
+    }
     var fetchedRecord;
     if (get(record, 'isEmpty')) {
       fetchedRecord = this.scheduleFetch(record);
