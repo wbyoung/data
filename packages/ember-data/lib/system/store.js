@@ -596,7 +596,7 @@ Store = Ember.Object.extend({
     Ember.assert("You tried to reload a record but you have no adapter (for " + type + ")", adapter);
     Ember.assert("You tried to reload a record but your adapter does not implement `find`", adapter.find);
 
-    return _find(adapter, this, type, id, record);
+    return this.scheduleFetch(record);
   },
 
   /**
