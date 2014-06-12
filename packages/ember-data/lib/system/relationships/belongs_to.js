@@ -32,7 +32,7 @@ function asyncBelongsTo(type, options, meta) {
         belongsTo = data[key];
 
     if(!isNone(belongsTo)) {
-      promise = store.fetchRecord(belongsTo) || Promise.cast(belongsTo, promiseLabel);
+      promise = store.scheduleFetch(belongsTo) || Promise.cast(belongsTo, promiseLabel);
       return PromiseObject.create({
         promise: promise
       });
@@ -135,7 +135,7 @@ function belongsTo(type, options) {
 
     if (isNone(belongsTo)) { return null; }
 
-    store.fetchRecord(belongsTo);
+    store.scheduleFetch(belongsTo);
 
     return belongsTo;
   }).meta(meta);

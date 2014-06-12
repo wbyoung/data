@@ -138,6 +138,8 @@ Store = Ember.Object.extend({
     });
     this._relationshipChanges = {};
     this._pendingSave = [];
+    //Used to keep track of all the find requests that need to be coalesced
+    this._pendingFetch = Ember.Map.create();
   },
 
   /**
@@ -404,7 +406,7 @@ Store = Ember.Object.extend({
     type = this.modelFor(type);
 
     var record = this.recordForId(type, id);
-    var fetchedRecord = this.fetchRecord(record);
+    var fetchedRecord = this.scheduleFetch(record);
 
     return promiseObject(fetchedRecord || record, "DS: Store#findById " + type + " with id: " + id);
   },
@@ -438,10 +440,6 @@ Store = Ember.Object.extend({
     @return {Promise} promise
   */
   fetchRecord: function(record) {
-    if (isNone(record)) { return null; }
-    if (record._loadingPromise) { return record._loadingPromise; }
-    if (!get(record, 'isEmpty')) { return null; }
-
     var type = record.constructor,
         id = get(record, 'id');
 
@@ -450,9 +448,46 @@ Store = Ember.Object.extend({
     Ember.assert("You tried to find a record but you have no adapter (for " + type + ")", adapter);
     Ember.assert("You tried to find a record but your adapter (for " + type + ") does not implement 'find'", adapter.find);
 
-    var promise = _find(adapter, this, type, id);
-    record.loadingData(promise);
+    var promise = _find(adapter, this, type, id, record);
     return promise;
+  },
+
+  scheduleFetch: function(record){
+    var type = record.constructor;
+    if (isNone(record)) { return null; }
+    if (record._loadingPromise) { return record._loadingPromise; }
+    if (!get(record, 'isEmpty')) { return null; }
+
+    var resolver = Ember.RSVP.defer("Fetching " + type + "with id: " + record.get('id'));
+    var recordResolverPair = {record: record, resolver: resolver};
+    var promise = resolver.promise;
+
+    record.loadingData(promise);
+
+    if (!this._pendingFetch.get(type)){
+      this._pendingFetch.set(type, [recordResolverPair]);
+    } else {
+      this._pendingFetch.get(type).push(recordResolverPair);
+    }
+    Ember.run.scheduleOnce('afterRender', this, this.flushPendingFetch);
+
+    return promise;
+  },
+
+  flushPendingFetch: function(){
+    var store = this;
+    this._pendingFetch.forEach(function(type, records){
+      forEach(records, function(recordResolverPair){
+        var resolver = recordResolverPair.resolver;
+        store.fetchRecord(recordResolverPair.record).then(function(record){
+          resolver.resolve(record);
+        }, function(error){
+          resolver.reject(error);
+        });
+      });
+    }, this);
+
+    this._pendingFetch = Ember.Map.create();
   },
 
   /**
