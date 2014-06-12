@@ -407,8 +407,22 @@ Store = Ember.Object.extend({
 
     var record = this.recordForId(type, id);
 
-    for (var key in preload) {
-      set(record, key, get(preload, key));
+    if (preload) {
+      forEach(Ember.keys(preload), function(key) {
+        if (record.constructor.metaForProperty(key).isRelationship){
+         if(record.constructor.metaForProperty(key).kind === 'hasMany'){
+            Ember.assert("You need to pass in an array to set a hasMany property on a record", Ember.isArray(preload[key]));
+            forEach(get(preload, key), function(recordToPush){
+              get(record, key).pushObject(recordToPush);
+            });
+          } else {
+            set(record, key, get(preload, key));
+          }
+        }
+        else{
+          set(record, key, get(preload, key));
+        }
+      });
     }
     var fetchedRecord;
     if (get(record, 'isEmpty')) {

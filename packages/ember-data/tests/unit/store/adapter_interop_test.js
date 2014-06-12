@@ -299,7 +299,7 @@ test("if an id is supplied in the initial data hash, it can be looked up using `
   }));
 });
 
-test("initial data values can be passed in as the third argument to find`", function() {
+test("initial values of attributes can be passed in as the third argument to find", function() {
   var adapter = TestAdapter.extend({
     find: function(store, type, query) {
       return new Ember.RSVP.Promise(function(){});
@@ -318,6 +318,58 @@ test("initial data values can be passed in as the third argument to find`", func
 
   store.find(Person, 1, {name: 'Test'});
   equal(store.getById(Person, 1).get('name'), 'Test', 'Preloaded attribtue set');
+});
+
+test("initial values of belongsTo can be passed in as the third argument to find as records", function() {
+  var adapter = TestAdapter.extend({
+    find: function(store, type, query) {
+      return new Ember.RSVP.Promise(function(){});
+    }
+  });
+
+  var callCount = 0;
+  var store = createStore({
+    adapter: adapter
+  });
+
+  var Person = DS.Model.extend({
+    name: DS.attr('string'),
+    friend: DS.belongsTo('person')
+  });
+
+  store.container.register('model:person', Person);
+
+  var tom = store.push(Person, {id:2, name:'Tom'});
+
+  store.find(Person, 1, {friend: tom});
+
+  equal(store.getById(Person, 1).get('friend.name'), 'Tom', 'Preloaded attribtue set');
+});
+
+test("initial values of hasMany can be passed in as the third argument to find as records", function() {
+  var adapter = TestAdapter.extend({
+    find: function(store, type, query) {
+      return new Ember.RSVP.Promise(function(){});
+    }
+  });
+
+  var callCount = 0;
+  var store = createStore({
+    adapter: adapter
+  });
+
+  var Person = DS.Model.extend({
+    name: DS.attr('string'),
+    friends: DS.hasMany('person')
+  });
+
+  store.container.register('model:person', Person);
+
+  var tom = store.push(Person, {id:2, name:'Tom'});
+
+  store.find(Person, 1, {friends: [tom]});
+
+  equal(store.getById(Person, 1).get('friends').toArray()[0].get('name'), 'Tom', 'Preloaded attribtue set');
 });
 
 test("records inside a collection view should have their ids updated", function() {
