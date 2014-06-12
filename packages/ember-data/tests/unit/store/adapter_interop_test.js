@@ -34,14 +34,15 @@ test('Adapter can not be set as an instance', function() {
 });
 
 test("Calling Store#find invokes its adapter#find", function() {
-  expect(4);
+  expect(5);
 
   var adapter = TestAdapter.extend({
-    find: function(store, type, id) {
+    find: function(store, type, id, record) {
       ok(true, "Adapter#find was called");
       equal(store, currentStore, "Adapter#find was called with the right store");
       equal(type,  currentType,  "Adapter#find was called with the type passed into Store#find");
       equal(id,    1,            "Adapter#find was called with the id passed into Store#find");
+      equal(record.get('id'), '1',   "Adapter#find was called with the record created from Store#find");
 
       return Ember.RSVP.resolve({ id: 1 });
     }

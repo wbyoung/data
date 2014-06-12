@@ -523,7 +523,7 @@ Store = Ember.Object.extend({
         var records = Ember.A(recordResolverPairs).mapBy('record');
         var resolvers = Ember.A(recordResolverPairs).mapBy('resolver');
         var ids = Ember.A(records).mapBy('id');
-        _findMany(adapter, store, type, ids, null).then(function(records){
+        _findMany(adapter, store, type, ids, null, records).then(function(records){
           forEach(records, function(record){
             var pair = Ember.A(recordResolverPairs).findBy('record', record);
             if (pair){
@@ -596,7 +596,7 @@ Store = Ember.Object.extend({
     Ember.assert("You tried to reload a record but you have no adapter (for " + type + ")", adapter);
     Ember.assert("You tried to reload a record but your adapter does not implement `find`", adapter.find);
 
-    return _find(adapter, this, type, id);
+    return _find(adapter, this, type, id, record);
   },
 
   /**
@@ -640,7 +640,7 @@ Store = Ember.Object.extend({
       Ember.assert("You tried to load many records but you have no adapter (for " + type + ")", adapter);
       Ember.assert("You tried to load many records but your adapter does not implement `findMany`", adapter.findMany);
 
-      promises.push(_findMany(adapter, this, type, ids, owner));
+      promises.push(_findMany(adapter, this, type, ids, owner), records);
     }, this);
 
     return Ember.RSVP.all(promises);
@@ -1813,8 +1813,8 @@ function serializerForAdapter(adapter, type) {
   return serializer;
 }
 
-function _find(adapter, store, type, id) {
-  var promise = adapter.find(store, type, id),
+function _find(adapter, store, type, id, record) {
+  var promise = adapter.find(store, type, id, record),
       serializer = serializerForAdapter(adapter, type),
       label = "DS: Handle Adapter#find of " + type + " with id: " + id;
 
@@ -1830,8 +1830,8 @@ function _find(adapter, store, type, id) {
   }, "DS: Extract payload of '" + type + "'");
 }
 
-function _findMany(adapter, store, type, ids, owner) {
-  var promise = adapter.findMany(store, type, ids, owner),
+function _findMany(adapter, store, type, ids, owner, records) {
+  var promise = adapter.findMany(store, type, ids, owner, records),
       serializer = serializerForAdapter(adapter, type),
       label = "DS: Handle Adapter#findMany of " + type;
 

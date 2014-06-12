@@ -580,10 +580,12 @@ test("findMany is passed the owner record for adapters when some of the object g
   var env = setupStore({ occupation: Occupation, person: Person }),
       store = env.store;
 
-  env.adapter.findMany = function(store, type, ids, owner) {
+  env.adapter.findMany = function(store, type, ids, owner, records) {
     equal(type, Occupation, "type should be Occupation");
     deepEqual(ids, ['5', '2'], "ids should be 5 and 2");
     equal(get(owner, 'id'), 1, "the owner record id should be 1");
+    equal(get(records[0], 'id'), '5', "first record requested was passed in");
+    equal(get(records[1], 'id'), '2', "first record requested was passed in");
 
     return Ember.RSVP.resolve([{ id: 5, description: "fifth" }, { id: 2, description: "second" }]);
   };
