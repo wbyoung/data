@@ -146,6 +146,62 @@ test("An updated `links` value should invalidate a relationship cache", function
   }));
 });
 
+test("Creating a record in the relationship should invalidate a relationship cache", function() {
+  Post.reopen({
+    comments: hasMany('comment', { async: true })
+  });
+  Comment.reopen({
+    message: belongsTo('post')
+  });
+
+  var commentRecords = [
+    { id: 1, message: 1, body: "First" },
+    { id: 2, message: 1, body: "Second" }
+  ];
+
+  env.store.push('post', { id: 1, links: { comments: "/posts/1/comments" } });
+
+  env.adapter.findHasMany = function(store, record, link, relationship) {
+    equal(relationship.type, Comment, "findHasMany relationship type was Comment");
+    equal(relationship.key, 'comments', "findHasMany relationship key was comments");
+    equal(link, "/posts/1/comments", "findHasMany link was /posts/1/comments");
+
+    return Ember.RSVP.resolve(commentRecords);
+  };
+
+  env.adapter.createRecord = function(store, type, record) {
+    var data = record.serialize();
+    var newRecord = { id: 3, message: 1, body: "Thrid" };
+    commentRecords.push(newRecord);
+    return Ember.RSVP.resolve(newRecord);
+  };
+
+  env.store.find('post', 1).then(async(function(post) {
+    return Ember.RSVP.hash({
+      post: post,
+      comments: post.get('comments')
+    });
+  })).then(async(function(records) {
+    var post = records.post;
+    var comments = records.comments;
+    equal(comments.get('isLoaded'), true, "comments are loaded");
+    equal(comments.get('length'), 2, "comments have 2 length");
+    return Ember.RSVP.hash({
+      post: post,
+      comments: comments,
+      newComment: env.store.createRecord('comment', { post: 1 })
+    });
+  })).then(async(function(records) {
+    var post = records.post;
+    var comments = records.comments;
+    equal(comments.get('isLoaded'), false, "comments are no longer loaded");
+    return post.get('comments');
+  })).then(async(function(comments) {
+    equal(comments.get('isLoaded'), true, "comments are loaded");
+    equal(comments.get('length'), 3, "comments have 3 length");
+  }));
+});
+
 test("When a polymorphic hasMany relationship is accessed, the adapter's findMany method should not be called if all the records in the relationship are already loaded", function() {
   expect(1);
 
